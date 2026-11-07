@@ -90,6 +90,17 @@ impl ButtonPressControl {
     }
 }
 
+// Global flag: let the 0-100 scale reach 150% in PulseAudio instead of 100%
+static ALLOW_OVERAMP: AtomicBool = AtomicBool::new(false);
+
+pub fn should_allow_overamp() -> bool {
+    ALLOW_OVERAMP.load(Ordering::Relaxed)
+}
+
+pub fn set_allow_overamp(value: bool) {
+    ALLOW_OVERAMP.store(value, Ordering::Relaxed);
+}
+
 // Public getter for the global show_system_mixer flag
 pub fn should_show_system_mixer() -> bool {
     SHOW_SYSTEM_MIXER.load(Ordering::Relaxed)

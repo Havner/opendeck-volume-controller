@@ -31,6 +31,8 @@ pub static SHARED_SETTINGS: LazyLock<Mutex<VolumeControllerSettings>> =
 #[serde(default)]
 pub struct VolumeControllerSettings {
     pub show_sys_mixer: bool,
+    /// Map the 0-100 scale onto 0-150% in PulseAudio instead of 0-100%.
+    pub allow_overamp: bool,
     pub ignored_apps_list: Vec<String>,
     /// Volume adjustment applied per key press / dial tick, in percentage points.
     pub volume_step: f32,
@@ -40,6 +42,7 @@ impl Default for VolumeControllerSettings {
     fn default() -> Self {
         Self {
             show_sys_mixer: false,
+            allow_overamp: false,
             ignored_apps_list: Vec::new(),
             volume_step: default_volume_step(),
         }
@@ -131,18 +134,21 @@ impl Action for VolumeControllerAction {
         let volume_step = settings.volume_step_or_default();
 
         println!(
-            "did_receive_settings for instance {}: show_sys_mixer={} volume_step={}",
-            instance.instance_id, settings.show_sys_mixer, volume_step
+            "did_receive_settings for instance {}: show_sys_mixer={} allow_overamp={} volume_step={}",
+            instance.instance_id, settings.show_sys_mixer, settings.allow_overamp, volume_step
         );
 
         // Check if any shared setting changed to avoid infinite broadcast loops
         let mut cached = SHARED_SETTINGS.lock().await;
         let settings_changed =
-            cached.show_sys_mixer != settings.show_sys_mixer || cached.volume_step != volume_step;
+            cached.show_sys_mixer != settings.show_sys_mixer
+                || cached.allow_overamp != settings.allow_overamp
+                || cached.volume_step != volume_step;
 
         if settings_changed {
             println!("Settings changed, broadcasting to all instances");
             cached.show_sys_mixer = settings.show_sys_mixer;
+            cached.allow_overamp = settings.allow_overamp;
             cached.volume_step = volume_step;
             let normalized = cached.clone();
             drop(cached);
@@ -153,8 +159,10 @@ impl Action for VolumeControllerAction {
                 let _ = inst.set_settings(&normalized).await;
             }
 
-            // Apply show_sys_mixer setting
+            // Apply show_sys_mixer and allow_overamp settings; the refresh
+            // re-reads every volume against the (possibly new) 100% ceiling
             utils::set_show_system_mixer(settings.show_sys_mixer);
+            utils::set_allow_overamp(settings.allow_overamp);
             let _ = refresh_audio_applications().await;
         } else {
             drop(cached);

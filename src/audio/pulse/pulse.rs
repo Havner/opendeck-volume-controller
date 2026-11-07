@@ -5,7 +5,15 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::sync::{LazyLock, Mutex};
 
-const PA_VOLUME_NORM: u32 = 98304; // 150% in PulseAudio
+/// Raw PulseAudio volume the plugin's 100% maps to: 100% in PulseAudio
+/// (`Volume::NORMAL`), or 150% when "Allow volume above 100%" is enabled.
+fn pa_volume_max() -> u32 {
+    if crate::utils::should_allow_overamp() {
+        98304 // 150% in PulseAudio
+    } else {
+        Volume::NORMAL.0
+    }
+}
 
 /// Identifies a single PulseAudio volume target: a device or an app
 /// sink-input, by its index. Devices and sink-inputs are separate index
@@ -61,8 +69,9 @@ impl PulseAudioSystem {
         }
         let channel_count = channel_count as usize;
 
+        let max = pa_volume_max();
         let live: Vec<u32> = volumes.get().iter().map(|v| v.0).collect();
-        let live_at_boundary = live.iter().any(|&v| v == 0 || v >= PA_VOLUME_NORM);
+        let live_at_boundary = live.iter().any(|&v| v == 0 || v >= max);
 
         let mut cache = CHANNEL_OFFSETS.lock().unwrap();
         let cached = cache.get(&key).filter(|o| o.len() == channel_count);
@@ -80,9 +89,9 @@ impl PulseAudioSystem {
         cache.insert(key, offsets.clone());
         drop(cache);
 
-        let targets = distribute_with_fixed_offsets(&offsets, target.0 as f64, PA_VOLUME_NORM as f64);
+        let targets = distribute_with_fixed_offsets(&offsets, target.0 as f64, max as f64);
         for (v, t) in volumes.get_mut().iter_mut().zip(targets.iter()) {
-            v.0 = t.round().clamp(0.0, PA_VOLUME_NORM as f64) as u32;
+            v.0 = t.round().clamp(0.0, max as f64) as u32;
         }
     }
 }
@@ -223,7 +232,7 @@ impl AudioSystem for PulseAudioSystem {
         percent: f32,
         is_device: bool,
     ) -> Result<(), Box<dyn Error>> {
-        let target = Volume(((percent.clamp(0.0, 100.0) / 100.0) * PA_VOLUME_NORM as f32) as u32);
+        let target = Volume(((percent.clamp(0.0, 100.0) / 100.0) * pa_volume_max() as f32) as u32);
 
         if is_device {
             let device = self.controller.get_device_by_index(app_index)?;
@@ -330,7 +339,7 @@ fn get_pulse_app_volume_percentage(channel_volumes: &ChannelVolumes) -> f32 {
         .sum();
 
     let avg_volume = total_volume as f32 / channel_count as f32;
-    let perc = (avg_volume / PA_VOLUME_NORM as f32) * 100.0;
+    let perc = (avg_volume / pa_volume_max() as f32) * 100.0;
 
     perc.min(100.0)
 }

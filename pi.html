@@ -34,6 +34,10 @@
                 showSysMixer.checked =
                     inActionInfo.payload.settings.show_sys_mixer ?? false;
 
+                const allowOveramp = document.getElementById("allow_overamp");
+                allowOveramp.checked =
+                    inActionInfo.payload.settings.allow_overamp ?? false;
+
                 const volumeStep = document.getElementById("volume_step");
                 volumeStep.value =
                     inActionInfo.payload.settings.volume_step ?? 5;
@@ -79,6 +83,8 @@
                         console.log("Updating PI with settings:", data.payload.settings);
                         showSysMixer.checked =
                             data.payload.settings.show_sys_mixer ?? false;
+                        allowOveramp.checked =
+                            data.payload.settings.allow_overamp ?? false;
                         volumeStep.value =
                             data.payload.settings.volume_step ?? 5;
                     } else if (data.event == "didReceiveGlobalSettings") {
@@ -108,6 +114,7 @@
                             context: inActionInfo.context,
                             payload: {
                                 show_sys_mixer: showSysMixer.checked,
+                                allow_overamp: allowOveramp.checked,
                                 volume_step: Number.isFinite(step) && step > 0 ? step : 5,
                             },
                         }),
@@ -213,6 +220,11 @@
         <div class="section">
             <label for="show_sys_mixer">Show system mixer:</label>
             <input id="show_sys_mixer" type="checkbox" oninput="update();" />
+        </div>
+
+        <div class="section">
+            <label for="allow_overamp">Allow volume above 100%:</label>
+            <input id="allow_overamp" type="checkbox" oninput="update();" />
         </div>
 
         <div class="section">
