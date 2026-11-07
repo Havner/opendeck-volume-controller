@@ -7,7 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 
 use crate::audio::audio_system::AppInfo;
-use crate::gfx::{DIAL_IDLE_ICON, TRANSPARENT_ICON};
+use crate::gfx::{DIAL_IDLE_ICON, MUTED_NO_ICON, TRANSPARENT_ICON};
 use crate::icons::{self, IconHints};
 use crate::mixer::{self, MixerChannel};
 use crate::plugin::{COLUMN_TO_CHANNEL_MAP, VolumeControllerAction};
@@ -292,7 +292,7 @@ fn wrap_title(text: &str) -> String {
 /// Get application icon as base64 data URIs
 /// Looks the icon up from the stream's icon name, .desktop file, app name
 /// or binary (see `icons::find_icon`). If nothing is found, both URIs are a
-/// fully transparent image (no icon).
+/// fully transparent image (no icon), with a dim red cross when muted.
 /// Returns (normal_icon_uri, muted_icon_uri, missing_icon)
 pub fn get_app_icon_uri(app: &AppInfo) -> (String, String, bool) {
     use base64::{Engine as _, engine::general_purpose};
@@ -307,8 +307,7 @@ pub fn get_app_icon_uri(app: &AppInfo) -> (String, String, bool) {
     let Some((icon_path, image_data)) =
         icon_path.and_then(|p| std::fs::read(&p).ok().map(|data| (p, data)))
     else {
-        let blank = TRANSPARENT_ICON.clone();
-        return (blank.clone(), blank, true);
+        return (TRANSPARENT_ICON.clone(), MUTED_NO_ICON.clone(), true);
     };
 
     let mime_type = match icon_path.extension().and_then(|e| e.to_str()) {

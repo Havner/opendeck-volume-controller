@@ -21,6 +21,46 @@ pub static TRANSPARENT_ICON: LazyLock<String> = LazyLock::new(|| {
     format!("data:image/png;base64,{}", base64)
 });
 
+/// Muted state for an app without an icon: a dim, dark red diagonal cross,
+/// subtle enough that the app name drawn over it stays readable.
+pub static MUTED_NO_ICON: LazyLock<String> = LazyLock::new(|| {
+    const ICON_SIZE: u32 = 144;
+    const MARGIN: f32 = 0.0;
+    const HALF_WIDTH: f32 = 4.0;
+    const COLOR: [u8; 3] = [200, 32, 32];
+    const OPACITY: f32 = 0.85;
+
+    let size = ICON_SIZE as f32;
+    let mut img = RgbaImage::from_pixel(ICON_SIZE, ICON_SIZE, Rgba([0, 0, 0, 0]));
+
+    for y in 0..ICON_SIZE {
+        for x in 0..ICON_SIZE {
+            // pixel centre
+            let (px, py) = (x as f32 + 0.5, y as f32 + 0.5);
+            if px < MARGIN || px > size - MARGIN || py < MARGIN || py > size - MARGIN {
+                continue;
+            }
+            // distance to the two diagonals (x = y and x = size - y)
+            let d1 = (px - py).abs() / std::f32::consts::SQRT_2;
+            let d2 = (px + py - size).abs() / std::f32::consts::SQRT_2;
+            // 1px anti-aliased edge
+            let coverage = (HALF_WIDTH + 0.5 - d1.min(d2)).clamp(0.0, 1.0);
+            if coverage > 0.0 {
+                let alpha = (255.0 * OPACITY * coverage) as u8;
+                img.put_pixel(x, y, Rgba([COLOR[0], COLOR[1], COLOR[2], alpha]));
+            }
+        }
+    }
+
+    let mut buffer = Vec::new();
+    let mut cursor = Cursor::new(&mut buffer);
+    img.write_to(&mut cursor, image::ImageFormat::Png)
+        .expect("Failed to encode muted no-icon image");
+
+    let base64 = general_purpose::STANDARD.encode(&buffer);
+    format!("data:image/png;base64,{}", base64)
+});
+
 /// Faded, grayscale version of the default app icon, shown on a dial's
 /// touchscreen segment when no app is assigned to it (e.g. fewer running
 /// apps than dial slots on the device). Signals "waiting for an app"
