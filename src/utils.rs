@@ -240,9 +240,9 @@ pub async fn update_header(instance: &Instance, channel: &MixerChannel) {
 
     let _ = instance.set_image(Some(icon_uri), None).await;
 
-    // Only show a title when we fell back to the generic icon — a real app
-    // icon is recognizable enough on its own.
-    if channel.uses_default_icon {
+    // Only show a title when no app icon was found — a real app icon is
+    // recognizable enough on its own.
+    if channel.missing_icon {
         let _ = instance
             .set_title(Some(channel.app_name.clone()), None)
             .await;
@@ -252,35 +252,27 @@ pub async fn update_header(instance: &Instance, channel: &MixerChannel) {
 }
 
 /// Get application icon as base64 data URIs
-/// If icon_name is None, returns the default wave-sound.png icon
-/// Otherwise, attempts to find and encode the system icon for the given icon name
-/// Returns (normal_icon_uri, muted_icon_uri, uses_default_icon)
+/// Tries the system icon for `icon_name`, then for `fallback_icon_name`.
+/// If neither is found, both URIs are a fully transparent image (no icon).
+/// Returns (normal_icon_uri, muted_icon_uri, missing_icon)
 pub fn get_app_icon_uri(
     icon_name: Option<String>,
     fallback_icon_name: String,
 ) -> (String, String, bool) {
     use base64::{Engine as _, engine::general_purpose};
-    use std::path::PathBuf;
 
     let fetcher = IconFetcher::new();
-    let mut uses_default_icon = false;
 
-    let icon_path = if let Some(name) = icon_name {
-        fetcher
-            .get_icon_path(name)
-            .or_else(|| fetcher.get_icon_path(fallback_icon_name.clone()))
-            .unwrap_or_else(|| PathBuf::from("img/wave-sound.png"))
-    } else {
-        fetcher
-            .get_icon_path(fallback_icon_name)
-            .unwrap_or_else(|| {
-                // Use default
-                uses_default_icon = true;
-                PathBuf::from("img/wave-sound.png")
-            })
+    let icon_path = icon_name
+        .and_then(|name| fetcher.get_icon_path(name))
+        .or_else(|| fetcher.get_icon_path(fallback_icon_name));
+
+    let Some((icon_path, image_data)) =
+        icon_path.and_then(|p| std::fs::read(&p).ok().map(|data| (p, data)))
+    else {
+        let blank = TRANSPARENT_ICON.clone();
+        return (blank.clone(), blank, true);
     };
-
-    let image_data = std::fs::read(&icon_path).expect("Failed to read icon file");
 
     let mime_type = match icon_path.extension().and_then(|e| e.to_str()) {
         Some("png") => "image/png",
@@ -318,7 +310,7 @@ pub fn get_app_icon_uri(
         normal_uri.clone()
     };
 
-    (normal_uri, muted_uri, uses_default_icon)
+    (normal_uri, muted_uri, false)
 }
 
 pub async fn cleanup_sd_column(instance: &Instance) {

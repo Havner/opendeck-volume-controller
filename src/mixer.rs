@@ -18,7 +18,7 @@ pub struct MixerChannel {
     pub vol_percent: f32,
     pub icon_uri: String,
     pub icon_uri_mute: String,
-    pub uses_default_icon: bool,
+    pub missing_icon: bool,
     pub is_device: bool,
 }
 
@@ -38,7 +38,7 @@ pub async fn create_mixer_channels(
             continue;
         }
 
-        let (icon_uri, icon_uri_mute, uses_default_icon) =
+        let (icon_uri, icon_uri_mute, missing_icon) =
             get_app_icon_uri(app.icon_name, app.app_name.clone());
 
         channels.insert(
@@ -54,7 +54,7 @@ pub async fn create_mixer_channels(
                 vol_percent: app.vol_percent,
                 icon_uri,
                 icon_uri_mute,
-                uses_default_icon,
+                missing_icon,
                 is_device: app.is_device,
             },
         );
@@ -86,11 +86,11 @@ pub async fn update_mixer_channels(
 
             if needs_update {
                 if channel.member_uids != app.member_uids {
-                    let (icon_uri, icon_uri_mute, uses_default_icon) =
+                    let (icon_uri, icon_uri_mute, missing_icon) =
                         get_app_icon_uri(app.icon_name, app.app_name.clone());
                     channel.icon_uri = icon_uri;
                     channel.icon_uri_mute = icon_uri_mute;
-                    channel.uses_default_icon = uses_default_icon;
+                    channel.missing_icon = missing_icon;
                 }
 
                 // Update the channel data
@@ -102,7 +102,7 @@ pub async fn update_mixer_channels(
             }
         } else {
             // Insert new channel if it doesn't exist
-            let (icon_uri, icon_uri_mute, uses_default_icon) =
+            let (icon_uri, icon_uri_mute, missing_icon) =
                 get_app_icon_uri(app.icon_name, app.app_name.clone());
 
             channels.insert(
@@ -118,7 +118,7 @@ pub async fn update_mixer_channels(
                     vol_percent: app.vol_percent,
                     icon_uri,
                     icon_uri_mute,
-                    uses_default_icon,
+                    missing_icon,
                     is_device: app.is_device,
                 },
             );
