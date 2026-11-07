@@ -166,6 +166,8 @@ struct RawStream {
     mute: bool,
     vol_percent: f32,
     icon_name: Option<String>,
+    binary: Option<String>,
+    app_id: Option<String>,
 }
 
 impl AudioSystem for PulseAudioSystem {
@@ -190,6 +192,8 @@ impl AudioSystem for PulseAudioSystem {
                 mute: default_sink.mute,
                 vol_percent: get_pulse_app_volume_percentage(&default_sink.volume),
                 icon_name: Some("audio-card".to_string()),
+                binary: None,
+                app_id: None,
                 is_device: true,
             });
         }
@@ -212,6 +216,11 @@ impl AudioSystem for PulseAudioSystem {
                 mute: app.mute,
                 vol_percent: get_pulse_app_volume_percentage(&app.volume),
                 icon_name: app.proplist.get_str("application.icon_name"),
+                binary: app.proplist.get_str("application.process.binary"),
+                app_id: app
+                    .proplist
+                    .get_str("application.id")
+                    .or_else(|| app.proplist.get_str("pipewire.access.portal.app_id")),
             })
             .collect();
 
@@ -300,6 +309,12 @@ fn group_streams(raw_streams: Vec<RawStream>) -> Vec<AppInfo> {
                 if group.icon_name.is_none() {
                     group.icon_name = stream.icon_name;
                 }
+                if group.binary.is_none() {
+                    group.binary = stream.binary;
+                }
+                if group.app_id.is_none() {
+                    group.app_id = stream.app_id;
+                }
                 vol_sums[idx] += stream.vol_percent;
                 vol_counts[idx] += 1;
             }
@@ -313,6 +328,8 @@ fn group_streams(raw_streams: Vec<RawStream>) -> Vec<AppInfo> {
                     mute: stream.mute,
                     vol_percent: stream.vol_percent,
                     icon_name: stream.icon_name,
+                    binary: stream.binary,
+                    app_id: stream.app_id,
                     is_device: false,
                 });
             }

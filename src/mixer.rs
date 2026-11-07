@@ -39,7 +39,7 @@ pub async fn create_mixer_channels(
         }
 
         let (icon_uri, icon_uri_mute, missing_icon) =
-            get_app_icon_uri(app.icon_name, app.app_name.clone());
+            get_app_icon_uri(&app);
 
         channels.insert(
             col_key as u8,
@@ -87,7 +87,7 @@ pub async fn update_mixer_channels(
             if needs_update {
                 if channel.member_uids != app.member_uids {
                     let (icon_uri, icon_uri_mute, missing_icon) =
-                        get_app_icon_uri(app.icon_name, app.app_name.clone());
+                        get_app_icon_uri(&app);
                     channel.icon_uri = icon_uri;
                     channel.icon_uri_mute = icon_uri_mute;
                     channel.missing_icon = missing_icon;
@@ -103,7 +103,7 @@ pub async fn update_mixer_channels(
         } else {
             // Insert new channel if it doesn't exist
             let (icon_uri, icon_uri_mute, missing_icon) =
-                get_app_icon_uri(app.icon_name, app.app_name.clone());
+                get_app_icon_uri(&app);
 
             channels.insert(
                 col_key,

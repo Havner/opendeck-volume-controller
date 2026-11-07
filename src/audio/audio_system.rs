@@ -11,6 +11,10 @@ pub struct AppInfo {
     pub mute: bool,
     pub vol_percent: f32,
     pub icon_name: Option<String>,
+    /// `application.process.binary`, used to find the app's .desktop file
+    pub binary: Option<String>,
+    /// `application.id` / `pipewire.access.portal.app_id` (desktop id)
+    pub app_id: Option<String>,
     pub is_device: bool,
 }
 

@@ -1,5 +1,4 @@
 use openaction::{Action, Instance, visible_instances};
-use tux_icons::icon_fetcher::IconFetcher;
 
 use std::collections::HashSet;
 use std::sync::LazyLock;
@@ -7,7 +6,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 
+use crate::audio::audio_system::AppInfo;
 use crate::gfx::{DIAL_IDLE_ICON, TRANSPARENT_ICON};
+use crate::icons::{self, IconHints};
 use crate::mixer::{self, MixerChannel};
 use crate::plugin::{COLUMN_TO_CHANNEL_MAP, VolumeControllerAction};
 
@@ -289,20 +290,19 @@ fn wrap_title(text: &str) -> String {
 }
 
 /// Get application icon as base64 data URIs
-/// Tries the system icon for `icon_name`, then for `fallback_icon_name`.
-/// If neither is found, both URIs are a fully transparent image (no icon).
+/// Looks the icon up from the stream's icon name, .desktop file, app name
+/// or binary (see `icons::find_icon`). If nothing is found, both URIs are a
+/// fully transparent image (no icon).
 /// Returns (normal_icon_uri, muted_icon_uri, missing_icon)
-pub fn get_app_icon_uri(
-    icon_name: Option<String>,
-    fallback_icon_name: String,
-) -> (String, String, bool) {
+pub fn get_app_icon_uri(app: &AppInfo) -> (String, String, bool) {
     use base64::{Engine as _, engine::general_purpose};
 
-    let fetcher = IconFetcher::new();
-
-    let icon_path = icon_name
-        .and_then(|name| fetcher.get_icon_path(name))
-        .or_else(|| fetcher.get_icon_path(fallback_icon_name));
+    let icon_path = icons::find_icon(&IconHints {
+        icon_name: app.icon_name.as_deref(),
+        app_id: app.app_id.as_deref(),
+        binary: app.binary.as_deref(),
+        app_name: &app.app_name,
+    });
 
     let Some((icon_path, image_data)) =
         icon_path.and_then(|p| std::fs::read(&p).ok().map(|data| (p, data)))
@@ -314,7 +314,6 @@ pub fn get_app_icon_uri(
     let mime_type = match icon_path.extension().and_then(|e| e.to_str()) {
         Some("png") => "image/png",
         Some("svg") => "image/svg+xml",
-        Some("xpm") => "image/x-xpm",
         _ => "image/png",
     };
 
