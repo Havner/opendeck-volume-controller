@@ -255,11 +255,37 @@ pub async fn update_header(instance: &Instance, channel: &MixerChannel) {
     // recognizable enough on its own.
     if channel.missing_icon {
         let _ = instance
-            .set_title(Some(channel.app_name.clone()), None)
+            .set_title(Some(wrap_title(&channel.app_name)), None)
             .await;
     } else {
         let _ = instance.set_title(Some(""), None).await;
     }
+}
+
+/// Rough number of characters that fit on one line of a key title.
+const TITLE_LINE_CHARS: usize = 10;
+/// Maximum number of lines a key title is wrapped into.
+const TITLE_MAX_LINES: usize = 3;
+
+/// Word-wrap a key title so long app names stay readable, e.g.
+/// "deus ex: mankind divided" -> "deus ex:\nmankind\ndivided".
+/// Words are never split; anything past the last line is appended to it.
+fn wrap_title(text: &str) -> String {
+    let mut lines: Vec<String> = Vec::new();
+    for word in text.split_whitespace() {
+        let full = lines.len() == TITLE_MAX_LINES;
+        match lines.last_mut() {
+            Some(line)
+                if line.chars().count() + 1 + word.chars().count() <= TITLE_LINE_CHARS
+                    || full =>
+            {
+                line.push(' ');
+                line.push_str(word);
+            }
+            _ => lines.push(word.to_string()),
+        }
+    }
+    lines.join("\n")
 }
 
 /// Get application icon as base64 data URIs
@@ -395,5 +421,19 @@ async fn update_sd_column(channel: &MixerChannel, instance: &Instance) {
             }
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::wrap_title;
+
+    #[test]
+    fn wraps_long_titles() {
+        assert_eq!(wrap_title("deus ex: mankind divided"), "deus ex:\nmankind\ndivided");
+        assert_eq!(wrap_title("firefox"), "firefox");
+        assert_eq!(wrap_title("spotify web player"), "spotify\nweb player");
+        assert_eq!(wrap_title("a b c d e f g h i j k l m n o p"), "a b c d e\nf g h i j\nk l m n o p");
+        assert_eq!(wrap_title("supercalifragilistic x"), "supercalifragilistic\nx");
     }
 }
